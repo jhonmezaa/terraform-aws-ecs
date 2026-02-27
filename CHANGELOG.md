@@ -1,5 +1,11 @@
 # Changelog
 
+## [v1.2.0] - 2026-02-27
+
+### Changed
+- Update AWS provider constraint to `~> 6.0` across module and examples
+
+
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
