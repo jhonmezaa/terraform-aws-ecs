@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-02-27
+
+### Added
+
+#### Standalone Task Definitions
+- New `task_definitions` variable for creating task definitions without an ECS service
+- Useful for `RunTask` invocations, EventBridge scheduled tasks, cron jobs, and one-off tasks
+- Same container definition features as service-based task definitions
+- Per-task CloudWatch log groups with configurable retention and KMS
+- Volume support (host, Docker, EFS)
+- Runtime platform, ephemeral storage, proxy configuration
+- New outputs: `standalone_task_definitions`, `standalone_task_definition_log_groups`
+- Shared container definition builder in locals (avoids code duplication)
+
 ## [1.0.0] - 2026-02-27
 
 ### Added
@@ -83,4 +97,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Basic Fargate example
 - Complete example with all features
 
+[1.1.0]: https://github.com/jhonmezaa/terraform-aws-ecs/releases/tag/v1.1.0
 [1.0.0]: https://github.com/jhonmezaa/terraform-aws-ecs/releases/tag/v1.0.0
