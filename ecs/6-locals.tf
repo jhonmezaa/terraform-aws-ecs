@@ -37,13 +37,14 @@ locals {
   }
 
   region_prefix = coalesce(var.region_prefix, lookup(local.region_prefix_map, data.aws_region.current.id, data.aws_region.current.id))
+  name_prefix   = var.use_region_prefix ? "${local.region_prefix}-" : ""
   account_id    = data.aws_caller_identity.current.account_id
   partition     = data.aws_partition.current.partition
 
   # Cluster naming
   cluster_name = coalesce(
     var.cluster_name,
-    "${local.region_prefix}-ecs-cluster-${var.account_name}-${var.project_name}"
+    "${local.name_prefix}ecs-cluster-${var.account_name}-${var.project_name}"
   )
 
   # Tags common to all resources
@@ -65,7 +66,7 @@ locals {
   standalone_td_names = {
     for k, v in var.task_definitions : k => coalesce(
       v.name,
-      "${local.region_prefix}-ecs-td-${var.account_name}-${var.project_name}-${k}"
+      "${local.name_prefix}ecs-td-${var.account_name}-${var.project_name}-${k}"
     )
   }
 
@@ -84,7 +85,7 @@ locals {
   service_names = {
     for k, v in var.services : k => coalesce(
       v.name,
-      "${local.region_prefix}-ecs-svc-${var.account_name}-${var.project_name}-${k}"
+      "${local.name_prefix}ecs-svc-${var.account_name}-${var.project_name}-${k}"
     )
   }
 
@@ -92,7 +93,7 @@ locals {
   task_definition_names = {
     for k, v in var.services : k => coalesce(
       v.task_definition_name,
-      "${local.region_prefix}-ecs-td-${var.account_name}-${var.project_name}-${k}"
+      "${local.name_prefix}ecs-td-${var.account_name}-${var.project_name}-${k}"
     )
   }
 
