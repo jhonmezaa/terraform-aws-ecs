@@ -99,13 +99,39 @@ output "services" {
 # ==============================================================================
 
 output "task_definitions" {
-  description = "Map of task definition attributes"
+  description = "Map of service task definition attributes"
   value = {
     for k, v in aws_ecs_task_definition.this : k => {
       arn                  = v.arn
       arn_without_revision = v.arn_without_revision
       family               = v.family
       revision             = v.revision
+    }
+  }
+}
+
+# ==============================================================================
+# STANDALONE TASK DEFINITION OUTPUTS
+# ==============================================================================
+
+output "standalone_task_definitions" {
+  description = "Map of standalone task definition attributes (for RunTask, scheduled tasks)"
+  value = {
+    for k, v in aws_ecs_task_definition.standalone : k => {
+      arn                  = v.arn
+      arn_without_revision = v.arn_without_revision
+      family               = v.family
+      revision             = v.revision
+    }
+  }
+}
+
+output "standalone_task_definition_log_groups" {
+  description = "Map of standalone task definition CloudWatch log group attributes"
+  value = {
+    for k, v in aws_cloudwatch_log_group.standalone_td : k => {
+      name = v.name
+      arn  = v.arn
     }
   }
 }

@@ -59,6 +59,24 @@ locals {
   )
 
   # ==============================================================================
+  # STANDALONE TASK DEFINITION LOCALS
+  # ==============================================================================
+
+  standalone_td_names = {
+    for k, v in var.task_definitions : k => coalesce(
+      v.name,
+      "${local.region_prefix}-ecs-td-${var.account_name}-${var.project_name}-${k}"
+    )
+  }
+
+  standalone_td_log_group_names = {
+    for k, v in var.task_definitions : k => coalesce(
+      v.log_group_name,
+      "/ecs/${local.cluster_name}/tasks/${k}"
+    )
+  }
+
+  # ==============================================================================
   # SERVICE LOCALS
   # ==============================================================================
 
@@ -87,13 +105,19 @@ locals {
   }
 
   # ==============================================================================
-  # CONTAINER DEFINITIONS
+  # CONTAINER DEFINITIONS (shared builder for services and standalone TDs)
   # ==============================================================================
 
-  # Build container definitions JSON for each service
-  container_definitions = {
-    for service_key, service in var.services : service_key => [
-      for container_key, container in service.containers : merge(
+  # Merge all sources that need container definitions built
+  all_container_sources = merge(
+    { for k, v in var.services : k => { containers = v.containers, log_group_name = local.log_group_names[k] } },
+    { for k, v in var.task_definitions : "standalone/${k}" => { containers = v.containers, log_group_name = local.standalone_td_log_group_names[k] } }
+  )
+
+  # Build container definitions JSON for services and standalone task definitions
+  all_container_definitions = {
+    for source_key, source in local.all_container_sources : source_key => [
+      for container_key, container in source.containers : merge(
         {
           name      = container_key
           image     = container.image
@@ -173,7 +197,7 @@ locals {
             { logDriver = container.log_configuration != null ? container.log_configuration.log_driver : "awslogs" },
             {
               options = container.log_configuration != null && container.log_configuration.options != null ? container.log_configuration.options : {
-                "awslogs-group"         = local.log_group_names[service_key]
+                "awslogs-group"         = source.log_group_name
                 "awslogs-region"        = data.aws_region.current.id
                 "awslogs-stream-prefix" = container_key
               }
@@ -292,5 +316,14 @@ locals {
         container.start_timeout != null ? { startTimeout = container.start_timeout } : {}
       )
     ]
+  }
+
+  # Split container definitions back to their sources
+  container_definitions = {
+    for k, v in var.services : k => local.all_container_definitions[k]
+  }
+
+  standalone_container_definitions = {
+    for k, v in var.task_definitions : k => local.all_container_definitions["standalone/${k}"]
   }
 }
