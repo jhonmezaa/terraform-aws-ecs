@@ -234,6 +234,189 @@ variable "task_exec_secret_arns" {
 }
 
 # ==============================================================================
+# STANDALONE TASK DEFINITIONS
+# ==============================================================================
+
+variable "task_definitions" {
+  description = "Map of standalone task definitions (for RunTask, scheduled tasks, one-off jobs)"
+  type = map(object({
+    # Naming
+    name           = optional(string)
+    log_group_name = optional(string)
+
+    # Task Definition
+    cpu                      = optional(number, 256)
+    memory                   = optional(number, 512)
+    network_mode             = optional(string, "awsvpc")
+    requires_compatibilities = optional(list(string), ["FARGATE"])
+    task_role_arn            = optional(string)
+    execution_role_arn       = optional(string)
+    pid_mode                 = optional(string)
+    ipc_mode                 = optional(string)
+    skip_destroy             = optional(bool)
+
+    runtime_platform = optional(object({
+      operating_system_family = optional(string, "LINUX")
+      cpu_architecture        = optional(string, "X86_64")
+    }))
+
+    ephemeral_storage = optional(object({
+      size_in_gib = number
+    }))
+
+    proxy_configuration = optional(object({
+      type           = optional(string, "APPMESH")
+      container_name = string
+      properties     = optional(map(string), {})
+    }))
+
+    # Containers
+    containers = map(object({
+      image                    = string
+      cpu                      = optional(number)
+      memory                   = optional(number)
+      memory_reservation       = optional(number)
+      essential                = optional(bool, true)
+      command                  = optional(list(string))
+      entry_point              = optional(list(string))
+      working_directory        = optional(string)
+      readonly_root_filesystem = optional(bool, true)
+      user                     = optional(string)
+      privileged               = optional(bool)
+      interactive              = optional(bool)
+      pseudo_terminal          = optional(bool)
+      stop_timeout             = optional(number)
+      start_timeout            = optional(number)
+
+      enable_cloudwatch_logging = optional(bool, true)
+
+      port_mappings = optional(list(object({
+        container_port = number
+        host_port      = optional(number)
+        protocol       = optional(string, "tcp")
+        name           = optional(string)
+        app_protocol   = optional(string)
+      })), [])
+
+      environment = optional(list(object({
+        name  = string
+        value = string
+      })), [])
+
+      environment_files = optional(list(object({
+        value = string
+        type  = optional(string, "s3")
+      })), [])
+
+      secrets = optional(list(object({
+        name       = string
+        value_from = string
+      })), [])
+
+      health_check = optional(object({
+        command      = list(string)
+        interval     = optional(number, 30)
+        timeout      = optional(number, 5)
+        retries      = optional(number, 3)
+        start_period = optional(number, 0)
+      }))
+
+      log_configuration = optional(object({
+        log_driver = optional(string, "awslogs")
+        options    = optional(map(string))
+      }))
+
+      mount_points = optional(list(object({
+        source_volume  = string
+        container_path = string
+        read_only      = optional(bool, false)
+      })), [])
+
+      volumes_from = optional(list(object({
+        source_container = string
+        read_only        = optional(bool, false)
+      })), [])
+
+      depends_on_containers = optional(list(object({
+        container_name = string
+        condition      = string
+      })), [])
+
+      linux_parameters = optional(object({
+        capabilities = optional(object({
+          add  = optional(list(string), [])
+          drop = optional(list(string), [])
+        }))
+        init_process_enabled = optional(bool)
+      }))
+
+      firelens_configuration = optional(object({
+        type    = string
+        options = optional(map(string))
+      }))
+
+      docker_labels = optional(map(string), {})
+
+      ulimits = optional(list(object({
+        name       = string
+        soft_limit = number
+        hard_limit = number
+      })), [])
+
+      extra_hosts = optional(list(object({
+        hostname   = string
+        ip_address = string
+      })))
+
+      resource_requirements = optional(list(object({
+        type  = string
+        value = string
+      })), [])
+
+      system_controls = optional(list(object({
+        namespace = string
+        value     = string
+      })), [])
+    }))
+
+    # Volumes
+    volumes = optional(list(object({
+      name      = string
+      host_path = optional(string)
+
+      docker_volume_configuration = optional(object({
+        scope         = optional(string)
+        autoprovision = optional(bool)
+        driver        = optional(string)
+        driver_opts   = optional(map(string))
+        labels        = optional(map(string))
+      }))
+
+      efs_volume_configuration = optional(object({
+        file_system_id          = string
+        root_directory          = optional(string)
+        transit_encryption      = optional(string)
+        transit_encryption_port = optional(number)
+        authorization_config = optional(object({
+          access_point_id = optional(string)
+          iam             = optional(string)
+        }))
+      }))
+    })), [])
+
+    # CloudWatch
+    create_log_group            = optional(bool, true)
+    log_group_retention_in_days = optional(number, 30)
+    log_group_kms_key_id        = optional(string)
+    log_group_tags              = optional(map(string), {})
+
+    # Tags
+    tags = optional(map(string), {})
+  }))
+  default = {}
+}
+
+# ==============================================================================
 # ECS SERVICES
 # ==============================================================================
 
