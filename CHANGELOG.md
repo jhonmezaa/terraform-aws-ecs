@@ -1,5 +1,14 @@
 # Changelog
 
+## [v1.4.0] - 2026-02-28
+
+### Added
+- Per-service task IAM role creation via `create_task_role` boolean on services, with `AmazonSSMManagedInstanceCore` policy attached for `enable_execute_command` support
+- `task_role_policy_arns` map on services for attaching additional managed policies to task roles
+- Task role naming follows convention: `{region_prefix}-iam-role-{account_name}-{project_name}-{service_key}-task`
+- New outputs: `task_iam_role_names`, `task_iam_role_arns`, `task_iam_role_unique_ids`
+- `awsfirelens` log driver support in container definitions: when `log_driver = "awsfirelens"`, log configuration options are passed through as-is (e.g., Fluentbit Name, Host, Port) instead of defaulting to awslogs options
+
 ## [v1.3.0] - 2026-02-27
 
 ### Added

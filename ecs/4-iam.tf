@@ -118,3 +118,76 @@ resource "aws_iam_role_policy" "task_exec" {
   role   = aws_iam_role.task_exec[0].id
   policy = data.aws_iam_policy_document.task_exec_inline[0].json
 }
+
+# ==============================================================================
+# TASK IAM ROLES (per service, for execute_command / application permissions)
+# ==============================================================================
+
+data "aws_iam_policy_document" "task_assume" {
+  for_each = { for k, v in var.services : k => v if v.create_task_role }
+
+  statement {
+    sid     = "ECSTaskAssumeRole"
+    effect  = "Allow"
+    actions = ["sts:AssumeRole"]
+
+    principals {
+      type        = "Service"
+      identifiers = ["ecs-tasks.amazonaws.com"]
+    }
+
+    condition {
+      test     = "ArnLike"
+      variable = "aws:SourceArn"
+      values   = ["arn:${local.partition}:ecs:${data.aws_region.current.id}:${local.account_id}:*"]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "aws:SourceAccount"
+      values   = [local.account_id]
+    }
+  }
+}
+
+resource "aws_iam_role" "task" {
+  for_each = { for k, v in var.services : k => v if v.create_task_role }
+
+  name               = local.task_role_names[each.key]
+  assume_role_policy = data.aws_iam_policy_document.task_assume[each.key].json
+
+  tags = merge(
+    local.tags_common,
+    each.value.tags,
+    {
+      Name        = local.task_role_names[each.key]
+      ServiceName = local.service_names[each.key]
+    }
+  )
+}
+
+# Attach AmazonSSMManagedInstanceCore for execute_command support
+resource "aws_iam_role_policy_attachment" "task_ssm" {
+  for_each = { for k, v in var.services : k => v if v.create_task_role }
+
+  role       = aws_iam_role.task[each.key].name
+  policy_arn = "arn:${local.partition}:iam::aws:policy/AmazonSSMManagedInstanceCore"
+}
+
+# Additional managed policies for task roles
+resource "aws_iam_role_policy_attachment" "task_additional" {
+  for_each = {
+    for item in flatten([
+      for service_key, service in var.services : [
+        for policy_key, policy_arn in service.task_role_policy_arns : {
+          key         = "${service_key}/${policy_key}"
+          service_key = service_key
+          policy_arn  = policy_arn
+        }
+      ] if service.create_task_role
+    ]) : item.key => item
+  }
+
+  role       = aws_iam_role.task[each.value.service_key].name
+  policy_arn = each.value.policy_arn
+}

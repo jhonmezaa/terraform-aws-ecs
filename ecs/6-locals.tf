@@ -97,6 +97,19 @@ locals {
     )
   }
 
+  # Build task role names per service
+  task_role_names = {
+    for k, v in var.services : k => "${local.name_prefix}iam-role-${var.account_name}-${var.project_name}-${k}-task"
+    if v.create_task_role
+  }
+
+  # Resolve task role ARNs: use created role if create_task_role, otherwise use provided task_role_arn
+  resolved_task_role_arns = {
+    for k, v in var.services : k => (
+      v.create_task_role ? aws_iam_role.task[k].arn : v.task_role_arn
+    )
+  }
+
   # Build CloudWatch log group names per service
   log_group_names = {
     for k, v in var.services : k => coalesce(
@@ -192,16 +205,26 @@ locals {
           )
         } : {},
 
-        # Log configuration - default to awslogs
+        # Log configuration - supports awslogs (default) and awsfirelens
         container.enable_cloudwatch_logging ? {
           logConfiguration = merge(
-            { logDriver = container.log_configuration != null ? container.log_configuration.log_driver : "awslogs" },
             {
-              options = container.log_configuration != null && container.log_configuration.options != null ? container.log_configuration.options : {
-                "awslogs-group"         = source.log_group_name
-                "awslogs-region"        = data.aws_region.current.id
-                "awslogs-stream-prefix" = container_key
-              }
+              logDriver = container.log_configuration != null ? container.log_configuration.log_driver : "awslogs"
+            },
+            {
+              options = (
+                container.log_configuration != null && container.log_configuration.options != null
+                ? container.log_configuration.options
+                : (
+                  container.log_configuration != null && container.log_configuration.log_driver == "awsfirelens"
+                  ? {}
+                  : {
+                    "awslogs-group"         = source.log_group_name
+                    "awslogs-region"        = data.aws_region.current.id
+                    "awslogs-stream-prefix" = container_key
+                  }
+                )
+              )
             }
           )
         } : {},

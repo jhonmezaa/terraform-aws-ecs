@@ -440,6 +440,8 @@ variable "services" {
     network_mode             = optional(string, "awsvpc")
     requires_compatibilities = optional(list(string), ["FARGATE"])
     task_role_arn            = optional(string)
+    create_task_role         = optional(bool, false)
+    task_role_policy_arns    = optional(map(string), {})
     execution_role_arn       = optional(string)
     pid_mode                 = optional(string)
     ipc_mode                 = optional(string)

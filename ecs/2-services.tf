@@ -36,7 +36,7 @@ resource "aws_ecs_task_definition" "this" {
   ipc_mode                 = each.value.ipc_mode
   skip_destroy             = each.value.skip_destroy
 
-  task_role_arn      = each.value.task_role_arn
+  task_role_arn      = local.resolved_task_role_arns[each.key]
   execution_role_arn = coalesce(each.value.execution_role_arn, try(aws_iam_role.task_exec[0].arn, null))
 
   container_definitions = jsonencode(local.container_definitions[each.key])
@@ -314,6 +314,8 @@ resource "aws_ecs_service" "this" {
     aws_cloudwatch_log_group.service,
     aws_iam_role_policy_attachment.task_exec_additional,
     aws_iam_role_policy.task_exec,
+    aws_iam_role_policy_attachment.task_ssm,
+    aws_iam_role_policy_attachment.task_additional,
   ]
 }
 
@@ -504,6 +506,8 @@ resource "aws_ecs_service" "ignore_task_definition" {
     aws_cloudwatch_log_group.service,
     aws_iam_role_policy_attachment.task_exec_additional,
     aws_iam_role_policy.task_exec,
+    aws_iam_role_policy_attachment.task_ssm,
+    aws_iam_role_policy_attachment.task_additional,
   ]
 
   lifecycle {
