@@ -65,6 +65,31 @@ output "task_exec_iam_role_unique_id" {
 }
 
 # ==============================================================================
+# TASK ROLE OUTPUTS
+# ==============================================================================
+
+output "task_iam_role_names" {
+  description = "Map of task IAM role names by service key"
+  value = {
+    for k, v in aws_iam_role.task : k => v.name
+  }
+}
+
+output "task_iam_role_arns" {
+  description = "Map of task IAM role ARNs by service key"
+  value = {
+    for k, v in aws_iam_role.task : k => v.arn
+  }
+}
+
+output "task_iam_role_unique_ids" {
+  description = "Map of task IAM role unique IDs by service key"
+  value = {
+    for k, v in aws_iam_role.task : k => v.unique_id
+  }
+}
+
+# ==============================================================================
 # SERVICE OUTPUTS
 # ==============================================================================
 
