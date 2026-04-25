@@ -1,5 +1,12 @@
 # Changelog
 
+
+## [v1.4.2] - 2026-04-25
+
+### Changed
+
+- Update README documentation and CHANGELOG formatting
+
 ## [v1.4.0] - 2026-02-28
 
 ### Added
