@@ -36,7 +36,7 @@ locals {
     "sa-east-1"      = "sae1"
   }
 
-  region_prefix = coalesce(var.region_prefix, lookup(local.region_prefix_map, data.aws_region.current.id, data.aws_region.current.id))
+  region_prefix = coalesce(var.region_prefix, lookup(local.region_prefix_map, data.aws_region.current.region, data.aws_region.current.region))
   name_prefix   = var.use_region_prefix ? "${local.region_prefix}-" : ""
   account_id    = data.aws_caller_identity.current.account_id
   partition     = data.aws_partition.current.partition
@@ -54,7 +54,7 @@ locals {
       "Module"      = "terraform-aws-ecs"
       "AccountName" = var.account_name
       "ProjectName" = var.project_name
-      "Region"      = data.aws_region.current.id
+      "Region"      = data.aws_region.current.region
     },
     var.tags
   )
@@ -220,7 +220,7 @@ locals {
                   ? {}
                   : {
                     "awslogs-group"         = source.log_group_name
-                    "awslogs-region"        = data.aws_region.current.id
+                    "awslogs-region"        = data.aws_region.current.region
                     "awslogs-stream-prefix" = container_key
                   }
                 )
