@@ -19,7 +19,7 @@ data "aws_iam_policy_document" "task_exec_assume" {
     condition {
       test     = "ArnLike"
       variable = "aws:SourceArn"
-      values   = ["arn:${local.partition}:ecs:${data.aws_region.current.id}:${local.account_id}:*"]
+      values   = ["arn:${local.partition}:ecs:${data.aws_region.current.region}:${local.account_id}:*"]
     }
 
     condition {
@@ -139,7 +139,7 @@ data "aws_iam_policy_document" "task_assume" {
     condition {
       test     = "ArnLike"
       variable = "aws:SourceArn"
-      values   = ["arn:${local.partition}:ecs:${data.aws_region.current.id}:${local.account_id}:*"]
+      values   = ["arn:${local.partition}:ecs:${data.aws_region.current.region}:${local.account_id}:*"]
     }
 
     condition {
