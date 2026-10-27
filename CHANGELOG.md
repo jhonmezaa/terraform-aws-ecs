@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v1.4.5] - 2026-10-27
+
+### Changed
+
+- Docs: normalize CHANGELOG format (preamble moved to the top, `v`-prefixed version headers, link references updated)
+- Docs: add missing CHANGELOG entry for v1.4.1
+
 ## [v1.4.4] - 2026-10-27
 
 ### Fixed
@@ -25,6 +32,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Update README documentation and CHANGELOG formatting
+
+## [v1.4.1] - 2026-02-28
+
+### Changed
+
+- Add comprehensive README.md
+- Update CHANGELOG
 
 ## [v1.4.0] - 2026-02-28
 
