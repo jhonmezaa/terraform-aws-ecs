@@ -1,5 +1,9 @@
 # Changelog
 
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [v1.4.4] - 2026-10-27
 
@@ -50,12 +54,7 @@
 
 - Update AWS provider constraint to `~> 6.0` across module and examples
 
-All notable changes to this project will be documented in this file.
-
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-
-## [1.1.0] - 2026-02-27
+## [v1.1.0] - 2026-02-27
 
 ### Added
 
@@ -70,7 +69,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - New outputs: `standalone_task_definitions`, `standalone_task_definition_log_groups`
 - Shared container definition builder in locals (avoids code duplication)
 
-## [1.0.0] - 2026-02-27
+## [v1.0.0] - 2026-02-27
 
 ### Added
 
@@ -157,5 +156,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Basic Fargate example
 - Complete example with all features
 
-[1.1.0]: https://github.com/jhonmezaa/terraform-aws-ecs/releases/tag/v1.1.0
-[1.0.0]: https://github.com/jhonmezaa/terraform-aws-ecs/releases/tag/v1.0.0
+[v1.1.0]: https://github.com/jhonmezaa/terraform-aws-ecs/releases/tag/v1.1.0
+[v1.0.0]: https://github.com/jhonmezaa/terraform-aws-ecs/releases/tag/v1.0.0
