@@ -5,6 +5,34 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v1.5.0] - 2026-11-17
+
+### Added
+
+- `tags_common` variable (AGENTS convention). The existing `tags` variable is kept for backward compatibility and is merged on top of `tags_common`
+- Validation of `account_name` and `project_name` (1-32 characters, `^[a-z0-9-]+$`) and of `task_exec_iam_role_name` (max 64 characters), so invalid values fail at plan time
+- `LICENSE` (MIT) file and a `README.md` for each example
+
+### Changed
+
+- Tags are merged as `merge(tags_common, tags, <resource tags>, { Name, ManagedBy = "Terraform" })`: `ManagedBy` can no longer be overridden by `tags_common`, `tags` or per-resource tags
+- The autoscaling target now gets a `Name` tag (the service name)
+- README: `source` examples use `github.com/jhonmezaa/terraform-aws-ecs//ecs?ref=v1.5.0`, the inputs table lists every variable, and the real task execution role / capacity provider / log group names are documented
+
+### Fixed
+
+- Generated IAM role names (`<cluster_name>-task-exec` and `<prefix>iam-role-<account>-<project>-<key>-task`) longer than the 64-character IAM limit failed at apply time; they are now shortened to 55 characters plus an 8-character hash suffix. Names within the limit are unchanged
+- EC2 capacity provider names starting with `aws`, `ecs` or `fargate` (for example with `use_region_prefix = false`, where the cluster name starts with `ecs-`) were rejected by AWS; they now get a `cp-` prefix. Other names are unchanged
+- `complete` example: invalid scheduled action cron expressions (`?` is required in day-of-month or day-of-week), ECS Exec logging pointed at a log group that was never created, services with `enable_execute_command` had no task role, `target_group_arn` / `db_secret_arn` defaulted to `""` (invalid ARNs), and the header comment listed features the example does not use
+- `basic` example and README usage: the stock `nginx` image cannot start with the module default `readonly_root_filesystem = true`; the examples set it to `false`
+- README: invalid managed policy ARN in the task role example (`arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess`)
+
+### Upgrade notes
+
+- `account_name` / `project_name` with uppercase letters, underscores or more than 32 characters now fail validation. Those values were already used verbatim in resource names; rename them (this renames and replaces the resources) or pin `v1.4.5`
+- If you set a `ManagedBy` tag through `tags`, `cloudwatch_log_group_tags`, `task_exec_iam_role_tags` or a per-service / per-task `tags` map, it is now replaced by `ManagedBy = "Terraform"` (tag-only in-place update)
+- No resource is renamed for configurations that worked with v1.4.5: the IAM role and capacity provider name changes only affect names that AWS rejected before
+
 ## [v1.4.5] - 2026-10-27
 
 ### Changed
