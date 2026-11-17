@@ -85,10 +85,16 @@ Examples:
 - Cluster: `ause1-ecs-cluster-prod-myapp`
 - Service: `ause1-ecs-svc-prod-myapp-api`
 - Task Definition: `ause1-ecs-td-prod-myapp-api`
-- Task Execution Role: `ause1-ecs-task-exec-role-prod-myapp`
+- Task Execution Role: `ause1-ecs-cluster-prod-myapp-task-exec`
+- EC2 Capacity Provider: `ause1-ecs-cluster-prod-myapp-<key>` (prefixed with `cp-` when the name would start with `aws`, `ecs` or `fargate`, which AWS rejects)
+- Log groups: `/ecs/<cluster_name>` (cluster), `/ecs/<cluster_name>/<service_key>` (services), `/ecs/<cluster_name>/tasks/<key>` (standalone task definitions)
 - Task Role: `ause1-iam-role-prod-myapp-api-task`
 
 Region prefixes are auto-detected (e.g., `us-east-1` -> `ause1`). Toggle with `use_region_prefix`.
+
+`account_name` and `project_name` must be 1-32 characters of lowercase letters, numbers and hyphens. Generated IAM role names longer than 64 characters are shortened to 55 characters plus an 8-character hash suffix.
+
+Tags: every resource gets `tags_common` (and the legacy `tags`, merged on top) plus `Name`, `ManagedBy = "Terraform"`, `Module`, `AccountName`, `ProjectName` and `Region`.
 
 ## Usage
 
@@ -96,7 +102,7 @@ Region prefixes are auto-detected (e.g., `us-east-1` -> `ause1`). Toggle with `u
 
 ```hcl
 module "ecs" {
-  source = "./terraform-aws-ecs/ecs"
+  source = "github.com/jhonmezaa/terraform-aws-ecs//ecs?ref=v1.5.0"
 
   account_name = "prod"
   project_name = "myapp"
@@ -108,7 +114,8 @@ module "ecs" {
 
       containers = {
         nginx = {
-          image = "nginx:latest"
+          image                    = "nginx:latest"
+          readonly_root_filesystem = false # stock nginx needs a writable root FS
           port_mappings = [
             {
               container_port = 80
@@ -118,8 +125,8 @@ module "ecs" {
         }
       }
 
-      desired_count    = 2
-      subnet_ids       = ["subnet-xxx", "subnet-yyy"]
+      desired_count      = 2
+      subnet_ids         = ["subnet-xxx", "subnet-yyy"]
       security_group_ids = ["sg-xxx"]
 
       deployment_circuit_breaker = {
@@ -135,7 +142,7 @@ module "ecs" {
 
 ```hcl
 module "ecs" {
-  source = "./terraform-aws-ecs/ecs"
+  source = "github.com/jhonmezaa/terraform-aws-ecs//ecs?ref=v1.5.0"
 
   account_name = "prod"
   project_name = "platform"
@@ -198,9 +205,9 @@ module "ecs" {
       ]
 
       # Per-service task role
-      create_task_role    = true
+      create_task_role      = true
       task_role_policy_arns = {
-        s3_access = "arn:aws:iam::policy/AmazonS3ReadOnlyAccess"
+        s3_access = "arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess"
       }
 
       # Auto-scaling
@@ -230,7 +237,7 @@ module "ecs" {
 
         scheduled_actions = {
           scale-up-morning = {
-            schedule     = "cron(0 8 * * ? *)"
+            schedule     = "cron(0 8 ? * MON-FRI *)"
             timezone     = "America/New_York"
             min_capacity = 5
           }
@@ -253,7 +260,7 @@ module "ecs" {
     }
   }
 
-  tags = {
+  tags_common = {
     Environment = "prod"
   }
 }
@@ -263,7 +270,7 @@ module "ecs" {
 
 ```hcl
 module "ecs" {
-  source = "./terraform-aws-ecs/ecs"
+  source = "github.com/jhonmezaa/terraform-aws-ecs//ecs?ref=v1.5.0"
 
   account_name = "prod"
   project_name = "myapp"
@@ -298,7 +305,7 @@ module "ecs" {
 
 ```hcl
 module "ecs" {
-  source = "./terraform-aws-ecs/ecs"
+  source = "github.com/jhonmezaa/terraform-aws-ecs//ecs?ref=v1.5.0"
 
   account_name = "prod"
   project_name = "myapp"
@@ -310,7 +317,8 @@ module "ecs" {
 
       containers = {
         web = {
-          image = "nginx:latest"
+          image                    = "nginx:latest"
+          readonly_root_filesystem = false # stock nginx needs a writable root FS
           port_mappings = [
             {
               container_port = 80
@@ -367,7 +375,7 @@ module "ecs" {
 ## Examples
 
 - [Basic](examples/basic/) - Simple Fargate service with NGINX
-- [Complete](examples/complete/) - Multiple services, secrets, auto-scaling, load balancer
+- [Complete](examples/complete/) - Multiple services, secrets, auto-scaling, load balancer, task roles and ECS Exec logging
 
 ## Requirements
 
@@ -378,36 +386,43 @@ module "ecs" {
 
 ## Inputs
 
-| Name                                     | Description                                | Type           | Default                                          |
-| ---------------------------------------- | ------------------------------------------ | -------------- | ------------------------------------------------ |
-| `account_name`                           | Account name for resource naming           | `string`       | -                                                |
-| `project_name`                           | Project name for resource naming           | `string`       | -                                                |
-| `region_prefix`                          | Override auto-generated region prefix      | `string`       | `null`                                           |
-| `use_region_prefix`                      | Include region prefix in names             | `bool`         | `true`                                           |
-| `tags`                                   | Additional tags for all resources          | `map(string)`  | `{}`                                             |
-| **Cluster**                              |                                            |                |                                                  |
-| `cluster_name`                           | Override cluster name                      | `string`       | `null`                                           |
-| `cluster_settings`                       | Cluster settings (e.g., containerInsights) | `list(object)` | `[{name="containerInsights", value="enhanced"}]` |
-| `cluster_execute_command_configuration`  | Execute command logging config             | `object`       | `{}`                                             |
-| `cluster_service_connect_defaults`       | Service Connect namespace                  | `object`       | `null`                                           |
-| **CloudWatch**                           |                                            |                |                                                  |
-| `create_cloudwatch_log_group`            | Create cluster log group                   | `bool`         | `true`                                           |
-| `cloudwatch_log_group_retention_in_days` | Log retention days                         | `number`       | `90`                                             |
-| `cloudwatch_log_group_kms_key_id`        | KMS key for log encryption                 | `string`       | `null`                                           |
-| **Capacity Providers**                   |                                            |                |                                                  |
-| `default_capacity_provider_use_fargate`  | Use Fargate as default                     | `bool`         | `true`                                           |
-| `fargate_capacity_providers`             | Fargate providers with strategies          | `map(object)`  | `{FARGATE={...}, FARGATE_SPOT={...}}`            |
-| `autoscaling_capacity_providers`         | EC2 autoscaling providers                  | `map(object)`  | `{}`                                             |
-| **IAM**                                  |                                            |                |                                                  |
-| `create_task_exec_iam_role`              | Create task execution role                 | `bool`         | `true`                                           |
-| `task_exec_iam_role_policies`            | Additional managed policies                | `map(string)`  | `{}`                                             |
-| `task_exec_secret_arns`                  | Secrets Manager ARNs to access             | `list(string)` | `[]`                                             |
-| `task_exec_ssm_param_arns`               | SSM parameter ARNs to access               | `list(string)` | `[]`                                             |
-| `task_exec_iam_statements`               | Custom IAM statements                      | `list(object)` | `[]`                                             |
-| **Services**                             |                                            |                |                                                  |
-| `services`                               | Map of ECS service definitions             | `map(object)`  | `{}`                                             |
-| **Standalone Tasks**                     |                                            |                |                                                  |
-| `task_definitions`                       | Map of standalone task definitions         | `map(object)`  | `{}`                                             |
+| Name                                      | Description                                                                 | Type           | Default                                          | Required |
+| ----------------------------------------- | --------------------------------------------------------------------------- | -------------- | ------------------------------------------------ | :------: |
+| `account_name`                            | Account name for resource naming (1-32 chars, `^[a-z0-9-]+$`)               | `string`       | n/a                                              |   yes    |
+| `project_name`                            | Project name for resource naming (1-32 chars, `^[a-z0-9-]+$`)               | `string`       | n/a                                              |   yes    |
+| `region_prefix`                           | Override auto-generated region prefix                                       | `string`       | `null`                                           |    no    |
+| `use_region_prefix`                       | Include region prefix in names                                              | `bool`         | `true`                                           |    no    |
+| `tags_common`                             | Common tags for all resources                                               | `map(string)`  | `{}`                                             |    no    |
+| `tags`                                    | Additional tags for all resources (legacy, merged on top of `tags_common`)  | `map(string)`  | `{}`                                             |    no    |
+| **Cluster**                               |                                                                             |                |                                                  |          |
+| `cluster_name`                            | Override cluster name                                                       | `string`       | `null`                                           |    no    |
+| `cluster_settings`                        | Cluster settings (e.g., containerInsights)                                  | `list(object)` | `[{name="containerInsights", value="enhanced"}]` |    no    |
+| `cluster_execute_command_configuration`   | Execute command logging config                                              | `object`       | `{}`                                             |    no    |
+| `cluster_service_connect_defaults`        | Service Connect namespace                                                   | `object`       | `null`                                           |    no    |
+| **CloudWatch**                            |                                                                             |                |                                                  |          |
+| `create_cloudwatch_log_group`             | Create cluster log group (`/ecs/<cluster_name>`)                            | `bool`         | `true`                                           |    no    |
+| `cloudwatch_log_group_retention_in_days`  | Log retention days                                                          | `number`       | `90`                                             |    no    |
+| `cloudwatch_log_group_kms_key_id`         | KMS key for log encryption                                                  | `string`       | `null`                                           |    no    |
+| `cloudwatch_log_group_tags`               | Additional tags for the cluster log group                                   | `map(string)`  | `{}`                                             |    no    |
+| **Capacity Providers**                    |                                                                             |                |                                                  |          |
+| `default_capacity_provider_use_fargate`   | Use Fargate as default                                                      | `bool`         | `true`                                           |    no    |
+| `fargate_capacity_providers`              | Fargate providers with strategies                                           | `map(object)`  | `{FARGATE={...}, FARGATE_SPOT={...}}`            |    no    |
+| `autoscaling_capacity_providers`          | EC2 autoscaling providers                                                   | `map(object)`  | `{}`                                             |    no    |
+| **IAM**                                   |                                                                             |                |                                                  |          |
+| `create_task_exec_iam_role`               | Create task execution role                                                  | `bool`         | `true`                                           |    no    |
+| `task_exec_iam_role_name`                 | Override task execution role name (max 64 chars)                            | `string`       | `null`                                           |    no    |
+| `task_exec_iam_role_path`                 | Task execution role path                                                    | `string`       | `null`                                           |    no    |
+| `task_exec_iam_role_description`          | Task execution role description                                             | `string`       | `"ECS Task Execution IAM Role"`                  |    no    |
+| `task_exec_iam_role_permissions_boundary` | Permissions boundary ARN for the task execution role                        | `string`       | `null`                                           |    no    |
+| `task_exec_iam_role_tags`                 | Additional tags for the task execution role                                 | `map(string)`  | `{}`                                             |    no    |
+| `task_exec_iam_role_policies`             | Additional managed policies                                                 | `map(string)`  | `{}`                                             |    no    |
+| `task_exec_secret_arns`                   | Secrets Manager ARNs to access                                              | `list(string)` | `[]`                                             |    no    |
+| `task_exec_ssm_param_arns`                | SSM parameter ARNs to access                                                | `list(string)` | `[]`                                             |    no    |
+| `task_exec_iam_statements`                | Custom IAM statements                                                       | `list(object)` | `[]`                                             |    no    |
+| **Services**                              |                                                                             |                |                                                  |          |
+| `services`                                | Map of ECS service definitions                                              | `map(object)`  | `{}`                                             |    no    |
+| **Standalone Tasks**                      |                                                                             |                |                                                  |          |
+| `task_definitions`                        | Map of standalone task definitions                                          | `map(object)`  | `{}`                                             |    no    |
 
 See [7-variables.tf](ecs/7-variables.tf) for the complete variable reference with all nested attributes.
 
@@ -461,7 +476,8 @@ terraform-aws-ecs/
 │   ├── basic/                  # Simple Fargate NGINX service
 │   └── complete/               # Full-featured multi-service deployment
 ├── CHANGELOG.md
-└── LICENSE
+├── LICENSE
+└── README.md
 ```
 
 ## License
