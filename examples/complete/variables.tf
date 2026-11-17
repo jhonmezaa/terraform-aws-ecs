@@ -28,11 +28,9 @@ variable "security_group_ids" {
 variable "target_group_arn" {
   description = "ARN of the ALB target group for the API service"
   type        = string
-  default     = ""
 }
 
 variable "db_secret_arn" {
   description = "ARN of the Secrets Manager secret for database credentials"
   type        = string
-  default     = ""
 }

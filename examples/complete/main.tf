@@ -1,8 +1,15 @@
 # ==============================================================================
 # COMPLETE ECS EXAMPLE
 # ==============================================================================
-# Demonstrates: multiple services, autoscaling, secrets, load balancer,
-# execute command, EFS volumes, Service Connect, and deployment alarms
+# Demonstrates: multiple services, autoscaling (target tracking + scheduled
+# actions), secrets, load balancer, per-service task roles and execute command
+# with CloudWatch logging
+
+# Log group for ECS Exec session logs (referenced by the cluster configuration)
+resource "aws_cloudwatch_log_group" "exec" {
+  name              = "/ecs/${var.account_name}-${var.project_name}/exec"
+  retention_in_days = 30
+}
 
 module "ecs" {
   source = "../../ecs"
@@ -23,7 +30,7 @@ module "ecs" {
     logging = "OVERRIDE"
     log_configuration = {
       cloud_watch_encryption_enabled = true
-      cloud_watch_log_group_name     = "/ecs/exec-logs"
+      cloud_watch_log_group_name     = aws_cloudwatch_log_group.exec.name
     }
   }
 
@@ -123,6 +130,7 @@ module "ecs" {
       # Service configuration
       desired_count          = 3
       enable_execute_command = true
+      create_task_role       = true # ECS Exec needs a task role with SSM permissions
       force_new_deployment   = true
 
       # Network
@@ -177,13 +185,13 @@ module "ecs" {
 
         scheduled_actions = {
           scale-up-morning = {
-            schedule     = "cron(0 8 * * MON-FRI *)"
+            schedule     = "cron(0 8 ? * MON-FRI *)"
             timezone     = "America/New_York"
             min_capacity = 5
             max_capacity = 20
           }
           scale-down-night = {
-            schedule     = "cron(0 22 * * * *)"
+            schedule     = "cron(0 22 * * ? *)"
             timezone     = "America/New_York"
             min_capacity = 2
             max_capacity = 10
@@ -229,6 +237,7 @@ module "ecs" {
 
       desired_count          = 2
       enable_execute_command = true
+      create_task_role       = true
 
       subnet_ids         = var.private_subnet_ids
       security_group_ids = var.security_group_ids
@@ -238,7 +247,7 @@ module "ecs" {
         rollback = true
       }
 
-      # Worker autoscaling based on SQS queue depth (custom metric)
+      # Worker autoscaling based on CPU utilization
       enable_autoscaling = true
       autoscaling = {
         min_capacity = 1
@@ -266,7 +275,7 @@ module "ecs" {
     }
   }
 
-  tags = {
+  tags_common = {
     Environment = "production"
     Example     = "complete"
   }

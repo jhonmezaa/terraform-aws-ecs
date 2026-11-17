@@ -31,6 +31,10 @@ module "ecs" {
           image     = "nginx:latest"
           essential = true
 
+          # The stock nginx image writes to /var/cache/nginx and /var/run, so it
+          # cannot run with the module default readonly_root_filesystem = true
+          readonly_root_filesystem = false
+
           port_mappings = [
             {
               container_port = 80
@@ -61,7 +65,7 @@ module "ecs" {
     }
   }
 
-  tags = {
+  tags_common = {
     Environment = "production"
     Example     = "basic"
   }
