@@ -44,7 +44,8 @@ resource "aws_ecs_cluster" "this" {
   tags = merge(
     local.tags_common,
     {
-      Name = local.cluster_name
+      Name      = local.cluster_name
+      ManagedBy = "Terraform"
     }
   )
 }
@@ -64,7 +65,8 @@ resource "aws_cloudwatch_log_group" "cluster" {
     local.tags_common,
     var.cloudwatch_log_group_tags,
     {
-      Name = "/ecs/${local.cluster_name}"
+      Name      = "/ecs/${local.cluster_name}"
+      ManagedBy = "Terraform"
     }
   )
 }
@@ -113,7 +115,7 @@ resource "aws_ecs_cluster_capacity_providers" "this" {
 resource "aws_ecs_capacity_provider" "this" {
   for_each = var.autoscaling_capacity_providers
 
-  name = "${local.cluster_name}-${each.key}"
+  name = local.capacity_provider_names[each.key]
 
   auto_scaling_group_provider {
     auto_scaling_group_arn         = each.value.auto_scaling_group_arn
@@ -136,7 +138,8 @@ resource "aws_ecs_capacity_provider" "this" {
     local.tags_common,
     try(each.value.tags, {}),
     {
-      Name = "${local.cluster_name}-${each.key}"
+      Name      = local.capacity_provider_names[each.key]
+      ManagedBy = "Terraform"
     }
   )
 }

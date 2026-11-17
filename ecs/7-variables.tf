@@ -5,11 +5,31 @@
 variable "account_name" {
   description = "Account name used for resource naming convention"
   type        = string
+
+  validation {
+    condition     = length(var.account_name) > 0 && length(var.account_name) <= 32
+    error_message = "account_name debe tener entre 1 y 32 caracteres."
+  }
+
+  validation {
+    condition     = can(regex("^[a-z0-9-]+$", var.account_name))
+    error_message = "account_name solo puede contener letras minúsculas, números y guiones."
+  }
 }
 
 variable "project_name" {
   description = "Project name used for resource naming convention"
   type        = string
+
+  validation {
+    condition     = length(var.project_name) > 0 && length(var.project_name) <= 32
+    error_message = "project_name debe tener entre 1 y 32 caracteres."
+  }
+
+  validation {
+    condition     = can(regex("^[a-z0-9-]+$", var.project_name))
+    error_message = "project_name solo puede contener letras minúsculas, números y guiones."
+  }
 }
 
 variable "region_prefix" {
@@ -24,8 +44,14 @@ variable "use_region_prefix" {
   default     = true
 }
 
+variable "tags_common" {
+  description = "Common tags to apply to all resources"
+  type        = map(string)
+  default     = {}
+}
+
 variable "tags" {
-  description = "Additional tags to apply to all resources"
+  description = "Additional tags to apply to all resources. Kept for backward compatibility; prefer `tags_common`. Merged on top of `tags_common`."
   type        = map(string)
   default     = {}
 }
@@ -176,9 +202,14 @@ variable "create_task_exec_iam_role" {
 }
 
 variable "task_exec_iam_role_name" {
-  description = "Override the task execution role name"
+  description = "Override the task execution role name. Defaults to `{cluster_name}-task-exec` (shortened with a hash suffix if it exceeds the 64-character IAM limit)."
   type        = string
   default     = null
+
+  validation {
+    condition     = var.task_exec_iam_role_name == null || length(coalesce(var.task_exec_iam_role_name, "x")) <= 64
+    error_message = "task_exec_iam_role_name no puede superar 64 caracteres (límite de IAM)."
+  }
 }
 
 variable "task_exec_iam_role_path" {

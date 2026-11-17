@@ -50,14 +50,42 @@ locals {
   # Tags common to all resources
   tags_common = merge(
     {
-      "ManagedBy"   = "Terraform"
       "Module"      = "terraform-aws-ecs"
       "AccountName" = var.account_name
       "ProjectName" = var.project_name
       "Region"      = data.aws_region.current.region
     },
-    var.tags
+    var.tags_common,
+    var.tags,
+    {
+      "ManagedBy" = "Terraform"
+    }
   )
+
+  # ==============================================================================
+  # NAME LENGTH / PREFIX GUARDS
+  # ==============================================================================
+
+  # IAM role names are limited to 64 characters. Generated names that exceed it
+  # are shortened to 55 characters plus a deterministic 8-character hash suffix.
+  task_exec_iam_role_name_generated = "${local.cluster_name}-task-exec"
+  task_exec_iam_role_name = coalesce(
+    var.task_exec_iam_role_name,
+    length(local.task_exec_iam_role_name_generated) > 64
+    ? "${substr(local.task_exec_iam_role_name_generated, 0, 55)}-${substr(md5(local.task_exec_iam_role_name_generated), 0, 8)}"
+    : local.task_exec_iam_role_name_generated
+  )
+
+  # ECS capacity provider names cannot start with "aws", "ecs" or "fargate".
+  # The cluster name may start with "ecs-" (use_region_prefix = false), so such
+  # names get a "cp-" prefix.
+  capacity_provider_names = {
+    for k, v in var.autoscaling_capacity_providers : k => (
+      can(regex("^(?i)(aws|ecs|fargate)", "${local.cluster_name}-${k}"))
+      ? "cp-${local.cluster_name}-${k}"
+      : "${local.cluster_name}-${k}"
+    )
+  }
 
   # ==============================================================================
   # STANDALONE TASK DEFINITION LOCALS
@@ -98,9 +126,16 @@ locals {
   }
 
   # Build task role names per service
-  task_role_names = {
+  task_role_names_generated = {
     for k, v in var.services : k => "${local.name_prefix}iam-role-${var.account_name}-${var.project_name}-${k}-task"
     if v.create_task_role
+  }
+
+  # Shorten to the 64-character IAM limit with a deterministic hash suffix
+  task_role_names = {
+    for k, n in local.task_role_names_generated : k => (
+      length(n) > 64 ? "${substr(n, 0, 55)}-${substr(md5(n), 0, 8)}" : n
+    )
   }
 
   # Resolve task role ARNs: use created role if create_task_role, otherwise use provided task_role_arn

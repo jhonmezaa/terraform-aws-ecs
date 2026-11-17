@@ -56,7 +56,11 @@ resource "aws_appautoscaling_target" "this" {
 
   tags = merge(
     local.tags_common,
-    each.value.tags
+    each.value.tags,
+    {
+      Name      = local.service_names[each.key]
+      ManagedBy = "Terraform"
+    }
   )
 }
 

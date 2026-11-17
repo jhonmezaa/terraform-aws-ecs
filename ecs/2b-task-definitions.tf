@@ -15,8 +15,9 @@ resource "aws_cloudwatch_log_group" "standalone_td" {
     each.value.log_group_tags,
     each.value.tags,
     {
-      Name     = local.standalone_td_log_group_names[each.key]
-      TaskName = local.standalone_td_names[each.key]
+      Name      = local.standalone_td_log_group_names[each.key]
+      ManagedBy = "Terraform"
+      TaskName  = local.standalone_td_names[each.key]
     }
   )
 }
@@ -104,7 +105,8 @@ resource "aws_ecs_task_definition" "standalone" {
     local.tags_common,
     each.value.tags,
     {
-      Name = local.standalone_td_names[each.key]
+      Name      = local.standalone_td_names[each.key]
+      ManagedBy = "Terraform"
     }
   )
 

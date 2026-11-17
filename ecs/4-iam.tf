@@ -33,7 +33,7 @@ data "aws_iam_policy_document" "task_exec_assume" {
 resource "aws_iam_role" "task_exec" {
   count = var.create_task_exec_iam_role ? 1 : 0
 
-  name                 = coalesce(var.task_exec_iam_role_name, "${local.cluster_name}-task-exec")
+  name                 = local.task_exec_iam_role_name
   path                 = var.task_exec_iam_role_path
   description          = var.task_exec_iam_role_description
   assume_role_policy   = data.aws_iam_policy_document.task_exec_assume[0].json
@@ -43,7 +43,8 @@ resource "aws_iam_role" "task_exec" {
     local.tags_common,
     var.task_exec_iam_role_tags,
     {
-      Name = coalesce(var.task_exec_iam_role_name, "${local.cluster_name}-task-exec")
+      Name      = local.task_exec_iam_role_name
+      ManagedBy = "Terraform"
     }
   )
 }
@@ -161,6 +162,7 @@ resource "aws_iam_role" "task" {
     each.value.tags,
     {
       Name        = local.task_role_names[each.key]
+      ManagedBy   = "Terraform"
       ServiceName = local.service_names[each.key]
     }
   )
