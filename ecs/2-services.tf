@@ -15,6 +15,7 @@ resource "aws_cloudwatch_log_group" "service" {
     each.value.tags,
     {
       Name        = local.log_group_names[each.key]
+      ManagedBy   = "Terraform"
       ServiceName = local.service_names[each.key]
     }
   )
@@ -108,6 +109,7 @@ resource "aws_ecs_task_definition" "this" {
     each.value.tags,
     {
       Name        = local.task_definition_names[each.key]
+      ManagedBy   = "Terraform"
       ServiceName = local.service_names[each.key]
     }
   )
@@ -306,7 +308,8 @@ resource "aws_ecs_service" "this" {
     local.tags_common,
     each.value.tags,
     {
-      Name = local.service_names[each.key]
+      Name      = local.service_names[each.key]
+      ManagedBy = "Terraform"
     }
   )
 
@@ -498,7 +501,8 @@ resource "aws_ecs_service" "ignore_task_definition" {
     local.tags_common,
     each.value.tags,
     {
-      Name = local.service_names[each.key]
+      Name      = local.service_names[each.key]
+      ManagedBy = "Terraform"
     }
   )
 
