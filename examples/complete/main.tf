@@ -3,7 +3,8 @@
 # ==============================================================================
 # Demonstrates: multiple services, autoscaling (target tracking + scheduled
 # actions), secrets, load balancer, per-service task roles and execute command
-# with CloudWatch logging
+# with CloudWatch logging. Autoscaled services set ignore_desired_count_changes
+# so Terraform does not revert the task count chosen by Application Auto Scaling
 
 # Log group for ECS Exec session logs (referenced by the cluster configuration)
 resource "aws_cloudwatch_log_group" "exec" {
@@ -155,8 +156,9 @@ module "ecs" {
         rollback = true
       }
 
-      # Auto-scaling
-      enable_autoscaling = true
+      # Auto-scaling (Terraform ignores desired_count drift caused by scaling)
+      enable_autoscaling           = true
+      ignore_desired_count_changes = true
       autoscaling = {
         min_capacity = 2
         max_capacity = 20
@@ -248,7 +250,8 @@ module "ecs" {
       }
 
       # Worker autoscaling based on CPU utilization
-      enable_autoscaling = true
+      enable_autoscaling           = true
+      ignore_desired_count_changes = true
       autoscaling = {
         min_capacity = 1
         max_capacity = 10

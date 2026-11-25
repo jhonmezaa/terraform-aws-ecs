@@ -124,7 +124,7 @@ resource "aws_ecs_task_definition" "this" {
 # ==============================================================================
 
 resource "aws_ecs_service" "this" {
-  for_each = { for k, v in var.services : k => v if !v.ignore_task_definition_changes }
+  for_each = { for k, v in var.services : k => v if !v.ignore_task_definition_changes && !v.ignore_desired_count_changes }
 
   name            = local.service_names[each.key]
   cluster         = aws_ecs_cluster.this.id
@@ -327,7 +327,7 @@ resource "aws_ecs_service" "this" {
 # ==============================================================================
 
 resource "aws_ecs_service" "ignore_task_definition" {
-  for_each = { for k, v in var.services : k => v if v.ignore_task_definition_changes }
+  for_each = { for k, v in var.services : k => v if v.ignore_task_definition_changes && !v.ignore_desired_count_changes }
 
   name            = local.service_names[each.key]
   cluster         = aws_ecs_cluster.this.id
@@ -516,5 +516,410 @@ resource "aws_ecs_service" "ignore_task_definition" {
 
   lifecycle {
     ignore_changes = [task_definition]
+  }
+}
+
+# ==============================================================================
+# ECS SERVICES (IGNORE DESIRED COUNT CHANGES - APPLICATION AUTO SCALING)
+# ==============================================================================
+
+resource "aws_ecs_service" "ignore_desired_count" {
+  for_each = { for k, v in var.services : k => v if !v.ignore_task_definition_changes && v.ignore_desired_count_changes }
+
+  name            = local.service_names[each.key]
+  cluster         = aws_ecs_cluster.this.id
+  task_definition = aws_ecs_task_definition.this[each.key].arn
+
+  desired_count                      = each.value.desired_count
+  launch_type                        = length(each.value.capacity_provider_strategy) > 0 ? null : each.value.launch_type
+  platform_version                   = each.value.platform_version
+  scheduling_strategy                = each.value.scheduling_strategy
+  deployment_minimum_healthy_percent = each.value.deployment_minimum_healthy_percent
+  deployment_maximum_percent         = each.value.deployment_maximum_percent
+  enable_execute_command             = each.value.enable_execute_command
+  enable_ecs_managed_tags            = each.value.enable_ecs_managed_tags
+  propagate_tags                     = each.value.propagate_tags
+  health_check_grace_period_seconds  = each.value.health_check_grace_period_seconds
+  force_new_deployment               = each.value.force_new_deployment
+  wait_for_steady_state              = each.value.wait_for_steady_state
+  triggers                           = each.value.triggers
+
+  # Network configuration (awsvpc mode)
+  dynamic "network_configuration" {
+    for_each = each.value.network_mode == "awsvpc" ? [1] : []
+    content {
+      subnets          = each.value.subnet_ids
+      security_groups  = each.value.security_group_ids
+      assign_public_ip = each.value.assign_public_ip
+    }
+  }
+
+  # Capacity provider strategy
+  dynamic "capacity_provider_strategy" {
+    for_each = each.value.capacity_provider_strategy
+    content {
+      capacity_provider = capacity_provider_strategy.value.capacity_provider
+      weight            = capacity_provider_strategy.value.weight
+      base              = capacity_provider_strategy.value.base
+    }
+  }
+
+  # Deployment circuit breaker
+  dynamic "deployment_circuit_breaker" {
+    for_each = each.value.deployment_circuit_breaker != null ? [each.value.deployment_circuit_breaker] : []
+    content {
+      enable   = deployment_circuit_breaker.value.enable
+      rollback = deployment_circuit_breaker.value.rollback
+    }
+  }
+
+  # Deployment alarms
+  dynamic "alarms" {
+    for_each = each.value.deployment_alarms != null ? [each.value.deployment_alarms] : []
+    content {
+      alarm_names = alarms.value.alarm_names
+      enable      = alarms.value.enable
+      rollback    = alarms.value.rollback
+    }
+  }
+
+  # Load balancers
+  dynamic "load_balancer" {
+    for_each = each.value.load_balancers
+    content {
+      target_group_arn = load_balancer.value.target_group_arn
+      container_name   = load_balancer.value.container_name
+      container_port   = load_balancer.value.container_port
+    }
+  }
+
+  # Service registries (Cloud Map)
+  dynamic "service_registries" {
+    for_each = each.value.service_registries != null ? [each.value.service_registries] : []
+    content {
+      registry_arn   = service_registries.value.registry_arn
+      container_name = service_registries.value.container_name
+      container_port = service_registries.value.container_port
+      port           = service_registries.value.port
+    }
+  }
+
+  # Service Connect
+  dynamic "service_connect_configuration" {
+    for_each = each.value.service_connect_configuration != null ? [each.value.service_connect_configuration] : []
+    content {
+      enabled   = service_connect_configuration.value.enabled
+      namespace = service_connect_configuration.value.namespace
+
+      dynamic "service" {
+        for_each = service_connect_configuration.value.services != null ? service_connect_configuration.value.services : []
+        content {
+          port_name             = service.value.port_name
+          discovery_name        = service.value.discovery_name
+          ingress_port_override = service.value.ingress_port_override
+
+          dynamic "client_alias" {
+            for_each = service.value.client_alias != null ? [service.value.client_alias] : []
+            content {
+              port     = client_alias.value.port
+              dns_name = client_alias.value.dns_name
+            }
+          }
+
+          dynamic "timeout" {
+            for_each = service.value.timeout != null ? [service.value.timeout] : []
+            content {
+              idle_timeout_seconds        = timeout.value.idle_timeout_seconds
+              per_request_timeout_seconds = timeout.value.per_request_timeout_seconds
+            }
+          }
+
+          dynamic "tls" {
+            for_each = service.value.tls != null ? [service.value.tls] : []
+            content {
+              issuer_cert_authority {
+                aws_pca_authority_arn = tls.value.issuer_cert_authority.aws_pca_authority_arn
+              }
+              kms_key  = tls.value.kms_key
+              role_arn = tls.value.role_arn
+            }
+          }
+        }
+      }
+
+      dynamic "log_configuration" {
+        for_each = service_connect_configuration.value.log_configuration != null ? [service_connect_configuration.value.log_configuration] : []
+        content {
+          log_driver = log_configuration.value.log_driver
+          options    = log_configuration.value.options
+        }
+      }
+    }
+  }
+
+  # Ordered placement strategy
+  dynamic "ordered_placement_strategy" {
+    for_each = each.value.ordered_placement_strategy
+    content {
+      type  = ordered_placement_strategy.value.type
+      field = ordered_placement_strategy.value.field
+    }
+  }
+
+  # Placement constraints
+  dynamic "placement_constraints" {
+    for_each = each.value.placement_constraints
+    content {
+      type       = placement_constraints.value.type
+      expression = placement_constraints.value.expression
+    }
+  }
+
+  # EBS Volume configuration
+  dynamic "volume_configuration" {
+    for_each = each.value.volume_configuration != null ? [each.value.volume_configuration] : []
+    content {
+      name = volume_configuration.value.name
+
+      managed_ebs_volume {
+        role_arn         = volume_configuration.value.managed_ebs_volume.role_arn
+        encrypted        = volume_configuration.value.managed_ebs_volume.encrypted
+        kms_key_id       = volume_configuration.value.managed_ebs_volume.kms_key_id
+        size_in_gb       = volume_configuration.value.managed_ebs_volume.size_in_gb
+        volume_type      = volume_configuration.value.managed_ebs_volume.volume_type
+        iops             = volume_configuration.value.managed_ebs_volume.iops
+        throughput       = volume_configuration.value.managed_ebs_volume.throughput
+        snapshot_id      = volume_configuration.value.managed_ebs_volume.snapshot_id
+        file_system_type = volume_configuration.value.managed_ebs_volume.file_system_type
+      }
+    }
+  }
+
+  dynamic "timeouts" {
+    for_each = each.value.timeouts != null ? [each.value.timeouts] : []
+    content {
+      create = timeouts.value.create
+      update = timeouts.value.update
+      delete = timeouts.value.delete
+    }
+  }
+
+  tags = merge(
+    local.tags_common,
+    each.value.tags,
+    {
+      Name      = local.service_names[each.key]
+      ManagedBy = "Terraform"
+    }
+  )
+
+  depends_on = [
+    aws_cloudwatch_log_group.service,
+    aws_iam_role_policy_attachment.task_exec_additional,
+    aws_iam_role_policy.task_exec,
+    aws_iam_role_policy_attachment.task_ssm,
+    aws_iam_role_policy_attachment.task_additional,
+  ]
+
+  lifecycle {
+    # desired_count is managed by Application Auto Scaling
+    ignore_changes = [desired_count]
+  }
+}
+
+# ==============================================================================
+# ECS SERVICES (IGNORE TASK DEFINITION AND DESIRED COUNT CHANGES)
+# ==============================================================================
+
+resource "aws_ecs_service" "ignore_task_definition_and_desired_count" {
+  for_each = { for k, v in var.services : k => v if v.ignore_task_definition_changes && v.ignore_desired_count_changes }
+
+  name            = local.service_names[each.key]
+  cluster         = aws_ecs_cluster.this.id
+  task_definition = aws_ecs_task_definition.this[each.key].arn
+
+  desired_count                      = each.value.desired_count
+  launch_type                        = length(each.value.capacity_provider_strategy) > 0 ? null : each.value.launch_type
+  platform_version                   = each.value.platform_version
+  scheduling_strategy                = each.value.scheduling_strategy
+  deployment_minimum_healthy_percent = each.value.deployment_minimum_healthy_percent
+  deployment_maximum_percent         = each.value.deployment_maximum_percent
+  enable_execute_command             = each.value.enable_execute_command
+  enable_ecs_managed_tags            = each.value.enable_ecs_managed_tags
+  propagate_tags                     = each.value.propagate_tags
+  health_check_grace_period_seconds  = each.value.health_check_grace_period_seconds
+  force_new_deployment               = each.value.force_new_deployment
+  wait_for_steady_state              = each.value.wait_for_steady_state
+  triggers                           = each.value.triggers
+
+  dynamic "network_configuration" {
+    for_each = each.value.network_mode == "awsvpc" ? [1] : []
+    content {
+      subnets          = each.value.subnet_ids
+      security_groups  = each.value.security_group_ids
+      assign_public_ip = each.value.assign_public_ip
+    }
+  }
+
+  dynamic "capacity_provider_strategy" {
+    for_each = each.value.capacity_provider_strategy
+    content {
+      capacity_provider = capacity_provider_strategy.value.capacity_provider
+      weight            = capacity_provider_strategy.value.weight
+      base              = capacity_provider_strategy.value.base
+    }
+  }
+
+  dynamic "deployment_circuit_breaker" {
+    for_each = each.value.deployment_circuit_breaker != null ? [each.value.deployment_circuit_breaker] : []
+    content {
+      enable   = deployment_circuit_breaker.value.enable
+      rollback = deployment_circuit_breaker.value.rollback
+    }
+  }
+
+  dynamic "alarms" {
+    for_each = each.value.deployment_alarms != null ? [each.value.deployment_alarms] : []
+    content {
+      alarm_names = alarms.value.alarm_names
+      enable      = alarms.value.enable
+      rollback    = alarms.value.rollback
+    }
+  }
+
+  dynamic "load_balancer" {
+    for_each = each.value.load_balancers
+    content {
+      target_group_arn = load_balancer.value.target_group_arn
+      container_name   = load_balancer.value.container_name
+      container_port   = load_balancer.value.container_port
+    }
+  }
+
+  dynamic "service_registries" {
+    for_each = each.value.service_registries != null ? [each.value.service_registries] : []
+    content {
+      registry_arn   = service_registries.value.registry_arn
+      container_name = service_registries.value.container_name
+      container_port = service_registries.value.container_port
+      port           = service_registries.value.port
+    }
+  }
+
+  dynamic "service_connect_configuration" {
+    for_each = each.value.service_connect_configuration != null ? [each.value.service_connect_configuration] : []
+    content {
+      enabled   = service_connect_configuration.value.enabled
+      namespace = service_connect_configuration.value.namespace
+
+      dynamic "service" {
+        for_each = service_connect_configuration.value.services != null ? service_connect_configuration.value.services : []
+        content {
+          port_name             = service.value.port_name
+          discovery_name        = service.value.discovery_name
+          ingress_port_override = service.value.ingress_port_override
+
+          dynamic "client_alias" {
+            for_each = service.value.client_alias != null ? [service.value.client_alias] : []
+            content {
+              port     = client_alias.value.port
+              dns_name = client_alias.value.dns_name
+            }
+          }
+
+          dynamic "timeout" {
+            for_each = service.value.timeout != null ? [service.value.timeout] : []
+            content {
+              idle_timeout_seconds        = timeout.value.idle_timeout_seconds
+              per_request_timeout_seconds = timeout.value.per_request_timeout_seconds
+            }
+          }
+
+          dynamic "tls" {
+            for_each = service.value.tls != null ? [service.value.tls] : []
+            content {
+              issuer_cert_authority {
+                aws_pca_authority_arn = tls.value.issuer_cert_authority.aws_pca_authority_arn
+              }
+              kms_key  = tls.value.kms_key
+              role_arn = tls.value.role_arn
+            }
+          }
+        }
+      }
+
+      dynamic "log_configuration" {
+        for_each = service_connect_configuration.value.log_configuration != null ? [service_connect_configuration.value.log_configuration] : []
+        content {
+          log_driver = log_configuration.value.log_driver
+          options    = log_configuration.value.options
+        }
+      }
+    }
+  }
+
+  dynamic "ordered_placement_strategy" {
+    for_each = each.value.ordered_placement_strategy
+    content {
+      type  = ordered_placement_strategy.value.type
+      field = ordered_placement_strategy.value.field
+    }
+  }
+
+  dynamic "placement_constraints" {
+    for_each = each.value.placement_constraints
+    content {
+      type       = placement_constraints.value.type
+      expression = placement_constraints.value.expression
+    }
+  }
+
+  dynamic "volume_configuration" {
+    for_each = each.value.volume_configuration != null ? [each.value.volume_configuration] : []
+    content {
+      name = volume_configuration.value.name
+
+      managed_ebs_volume {
+        role_arn         = volume_configuration.value.managed_ebs_volume.role_arn
+        encrypted        = volume_configuration.value.managed_ebs_volume.encrypted
+        kms_key_id       = volume_configuration.value.managed_ebs_volume.kms_key_id
+        size_in_gb       = volume_configuration.value.managed_ebs_volume.size_in_gb
+        volume_type      = volume_configuration.value.managed_ebs_volume.volume_type
+        iops             = volume_configuration.value.managed_ebs_volume.iops
+        throughput       = volume_configuration.value.managed_ebs_volume.throughput
+        snapshot_id      = volume_configuration.value.managed_ebs_volume.snapshot_id
+        file_system_type = volume_configuration.value.managed_ebs_volume.file_system_type
+      }
+    }
+  }
+
+  dynamic "timeouts" {
+    for_each = each.value.timeouts != null ? [each.value.timeouts] : []
+    content {
+      create = timeouts.value.create
+      update = timeouts.value.update
+      delete = timeouts.value.delete
+    }
+  }
+
+  tags = merge(
+    local.tags_common,
+    each.value.tags,
+    {
+      Name      = local.service_names[each.key]
+      ManagedBy = "Terraform"
+    }
+  )
+
+  depends_on = [
+    aws_cloudwatch_log_group.service,
+    aws_iam_role_policy_attachment.task_exec_additional,
+    aws_iam_role_policy.task_exec,
+    aws_iam_role_policy_attachment.task_ssm,
+    aws_iam_role_policy_attachment.task_additional,
+  ]
+
+  lifecycle {
+    ignore_changes = [task_definition, desired_count]
   }
 }

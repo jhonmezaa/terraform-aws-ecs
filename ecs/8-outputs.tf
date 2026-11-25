@@ -95,28 +95,21 @@ output "task_iam_role_unique_ids" {
 
 output "services" {
   description = "Map of ECS service attributes"
-  value = merge(
-    { for k, v in aws_ecs_service.this : k => {
-      id                  = v.id
-      name                = v.name
-      cluster             = v.cluster
-      desired_count       = v.desired_count
-      launch_type         = v.launch_type
-      platform_version    = v.platform_version
-      scheduling_strategy = v.scheduling_strategy
-      tags_all            = v.tags_all
-    } },
-    { for k, v in aws_ecs_service.ignore_task_definition : k => {
-      id                  = v.id
-      name                = v.name
-      cluster             = v.cluster
-      desired_count       = v.desired_count
-      launch_type         = v.launch_type
-      platform_version    = v.platform_version
-      scheduling_strategy = v.scheduling_strategy
-      tags_all            = v.tags_all
-    } }
-  )
+  value = { for k, v in merge(
+    aws_ecs_service.this,
+    aws_ecs_service.ignore_task_definition,
+    aws_ecs_service.ignore_desired_count,
+    aws_ecs_service.ignore_task_definition_and_desired_count,
+    ) : k => {
+    id                  = v.id
+    name                = v.name
+    cluster             = v.cluster
+    desired_count       = v.desired_count
+    launch_type         = v.launch_type
+    platform_version    = v.platform_version
+    scheduling_strategy = v.scheduling_strategy
+    tags_all            = v.tags_all
+  } }
 }
 
 # ==============================================================================

@@ -10,11 +10,12 @@ locals {
 
   # Resolve service resource IDs for autoscaling target
   service_resource_ids = {
-    for k, v in var.services : k => v.ignore_task_definition_changes ? (
-      "service/${aws_ecs_cluster.this.name}/${aws_ecs_service.ignore_task_definition[k].name}"
-      ) : (
-      "service/${aws_ecs_cluster.this.name}/${aws_ecs_service.this[k].name}"
-    )
+    for k, v in merge(
+      aws_ecs_service.this,
+      aws_ecs_service.ignore_task_definition,
+      aws_ecs_service.ignore_desired_count,
+      aws_ecs_service.ignore_task_definition_and_desired_count,
+    ) : k => "service/${aws_ecs_cluster.this.name}/${v.name}"
   }
 
   # Flatten autoscaling policies

@@ -34,6 +34,7 @@ Terraform module for AWS ECS (Elastic Container Service) with clusters, Fargate/
 - EBS managed volume configuration
 - Force new deployment, configurable timeouts
 - `ignore_task_definition_changes` lifecycle for external deployments (CI/CD)
+- `ignore_desired_count_changes` lifecycle so Application Auto Scaling owns the running task count
 
 ### Task Definitions
 
@@ -66,6 +67,34 @@ Built entirely via locals (no external JSON files):
 - **Target tracking policies**: CPU, Memory, custom metrics with math expressions
 - **Scheduled actions**: Timezone-aware with min/max capacity changes
 - Configurable scale-in/out cooldowns
+
+#### `desired_count` and autoscaling
+
+Application Auto Scaling changes the service `desired_count` at runtime. By default
+(`ignore_desired_count_changes = false`, the behaviour of v1.5.0 and earlier) the next
+`terraform apply` resets it to the configured `desired_count`. Set
+`ignore_desired_count_changes = true` on autoscaled services to add
+`lifecycle { ignore_changes = [desired_count] }` (like the official
+`terraform-aws-modules/ecs` module, where it is always ignored): `desired_count` is only
+used when the service is created, and later drift is an in-place no-op, never a
+replacement. It can be combined with `ignore_task_definition_changes`.
+
+Turning the option on (or off) for an existing service moves it to another resource
+address. Add a `moved` block in your root module so it is not destroyed and recreated:
+
+```hcl
+moved {
+  from = module.ecs.aws_ecs_service.this["api"]
+  to   = module.ecs.aws_ecs_service.ignore_desired_count["api"]
+}
+```
+
+| `ignore_task_definition_changes` | `ignore_desired_count_changes` | Resource address                                           |
+| -------------------------------- | ------------------------------ | ---------------------------------------------------------- |
+| `false`                          | `false`                        | `aws_ecs_service.this`                                     |
+| `true`                           | `false`                        | `aws_ecs_service.ignore_task_definition`                   |
+| `false`                          | `true`                         | `aws_ecs_service.ignore_desired_count`                     |
+| `true`                           | `true`                         | `aws_ecs_service.ignore_task_definition_and_desired_count` |
 
 ### IAM
 
@@ -102,7 +131,7 @@ Tags: every resource gets `tags_common` (and the legacy `tags`, merged on top) p
 
 ```hcl
 module "ecs" {
-  source = "github.com/jhonmezaa/terraform-aws-ecs//ecs?ref=v1.5.0"
+  source = "github.com/jhonmezaa/terraform-aws-ecs//ecs?ref=v1.6.0"
 
   account_name = "prod"
   project_name = "myapp"
@@ -142,7 +171,7 @@ module "ecs" {
 
 ```hcl
 module "ecs" {
-  source = "github.com/jhonmezaa/terraform-aws-ecs//ecs?ref=v1.5.0"
+  source = "github.com/jhonmezaa/terraform-aws-ecs//ecs?ref=v1.6.0"
 
   account_name = "prod"
   project_name = "platform"
@@ -211,7 +240,8 @@ module "ecs" {
       }
 
       # Auto-scaling
-      enable_autoscaling = true
+      enable_autoscaling           = true
+      ignore_desired_count_changes = true # let autoscaling own desired_count
       autoscaling = {
         min_capacity = 2
         max_capacity = 20
@@ -270,7 +300,7 @@ module "ecs" {
 
 ```hcl
 module "ecs" {
-  source = "github.com/jhonmezaa/terraform-aws-ecs//ecs?ref=v1.5.0"
+  source = "github.com/jhonmezaa/terraform-aws-ecs//ecs?ref=v1.6.0"
 
   account_name = "prod"
   project_name = "myapp"
@@ -305,7 +335,7 @@ module "ecs" {
 
 ```hcl
 module "ecs" {
-  source = "github.com/jhonmezaa/terraform-aws-ecs//ecs?ref=v1.5.0"
+  source = "github.com/jhonmezaa/terraform-aws-ecs//ecs?ref=v1.6.0"
 
   account_name = "prod"
   project_name = "myapp"

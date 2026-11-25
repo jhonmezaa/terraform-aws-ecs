@@ -794,6 +794,8 @@ variable "services" {
 
     # Lifecycle
     ignore_task_definition_changes = optional(bool, false)
+    # Ignore desired_count drift (managed by Application Auto Scaling). Disabled by default.
+    ignore_desired_count_changes = optional(bool, false)
 
     # CloudWatch
     create_log_group            = optional(bool, true)
