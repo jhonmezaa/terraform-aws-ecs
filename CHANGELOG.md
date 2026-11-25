@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v1.6.0] - 2026-11-24
+
+### Added
+
+- Per-service `ignore_desired_count_changes` option (default `false`). When `true`, the ECS service is created with `lifecycle { ignore_changes = [desired_count] }`, so the task count set by Application Auto Scaling is not reverted on the next apply and never forces a replacement. It can be combined with `ignore_task_definition_changes` (new `aws_ecs_service.ignore_desired_count` and `aws_ecs_service.ignore_task_definition_and_desired_count` resources)
+- `complete` example: the autoscaled `api` and `worker` services set `ignore_desired_count_changes = true`
+
+### Changed
+
+- The `services` output and the autoscaling target `resource_id` are built from all four service resource variants (same values as before)
+
+### Upgrade notes
+
+- No change for existing configurations: the default keeps the previous behaviour and resource addresses
+- Enabling `ignore_desired_count_changes` on an existing service changes its address from `aws_ecs_service.this[...]` (or `ignore_task_definition[...]`) to `aws_ecs_service.ignore_desired_count[...]` (or `ignore_task_definition_and_desired_count[...]`). Add a `moved` block in the root module (see README) or run `terraform state mv` to avoid destroying and recreating the service
+
 ## [v1.5.0] - 2026-11-17
 
 ### Added
